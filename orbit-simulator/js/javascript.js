@@ -25,27 +25,35 @@ function init() {
   controls = new THREE.OrbitControls(camera, renderer.domElement);
 
   // Add the celestial bodies
-  var Sun = addBody(30, "yellow", null, 10, 5);
-  var Earth = addBody(30, "blue", Sun, 5, 5);
-  var Moon = addBody(10, "white", Earth, 2, 3);
+  //                   a         c   e   F     M      p   r   R
+  var Sun   = addBody( 5, "yellow",  0,  0, .005,  null, 10,  0);
+  var Earth = addBody(10,   "blue", .1,  0,  .02,   Sun,  5, 20);
+  var Moon  = addBody( 5,  "white", .1,  0,  .05, Earth,  2,  5);
+  var Mars  = addBody(30, "orange", .3,  1,  .01,   Sun,  5, 30);
 }
 
 /*
 Add a celestial body
 a: semi-major axis
 c: color
+e: eccentricity
+F: initial true anomaly
+M: mean anomaly
 p: primary graviational influence aka parent
-r: radius
-t: period of rotation
+r: physical radius
+R: initial radius from parent
 */
-function addBody(a, c, p, r, t) {
+function addBody(a, c, e, F, M, p, r, R) {
   var geometry = new THREE.SphereGeometry(r, 32, 32);
   var material = new THREE.MeshBasicMaterial({color: c});
   var body = new THREE.Mesh(geometry, material);
 
   body.a = a;
+  body.e = e;
+  body.F = F;
+  body.M = M;
   body.p = p;
-  body.t = t;
+  body.R = R;
 
   scene.add(body);
   bodies.push(body);
@@ -67,9 +75,16 @@ function animate() {
 function updatePosition(body) {
   var ms = Date.now() - Date.UTC(2000, 0, 1, 12, 0, 0);
   var sec = ms / 1000;
+  // Arbitrary speed constant
+  var speed = 100;
+  var currentM = body.M * sec * speed;
 
-  var x = body.a * Math.cos((2 * Math.PI * sec) / body.t);
-  var y = body.a * Math.sin((2 * Math.PI * sec) / body.t);
+  var E = calcE(body.e, currentM);
+  var F = calcF(body.e, E) + body.F;
+  var R = calcR(body.a, body.e, E) + body.R;
+
+  var x = R * Math.cos(F);
+  var y = R * Math.sin(F);
 
   if (body.p) {
     x += body.p.position.x;
@@ -78,4 +93,27 @@ function updatePosition(body) {
 
   body.position.x = x;
   body.position.y = y;
+}
+
+// Calculate E using Newton's method
+function calcE(e, M) {
+  // Assume that E is close to M
+  var E = M;
+
+  while(true) {
+    var dE = (E - e * Math.sin(E) - M)/(1 - e * Math.cos(E));
+    E -= dE;
+    // Accept the approximation of E if dE is less than 1e-5
+    if(Math.abs(dE) < 1e-5) break;
+  }
+
+  return E;
+}
+
+function calcF(e, E) {
+  return 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2));
+}
+
+function calcR(a, e, E) {
+  return a * (1 - e * Math.cos(E));
 }
