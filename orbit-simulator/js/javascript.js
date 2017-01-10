@@ -25,9 +25,9 @@ function init() {
   controls = new THREE.OrbitControls(camera, renderer.domElement);
 
   // Add the celestial bodies
-  var Sun = addBody(30, 0xffff00, null, 10, 5);
-  var Earth = addBody(30, 0xffff00, Sun, 5, 5);
-  var Moon = addBody(10, 0xffff00, Earth, 2, 1);
+  var Sun = addBody(30, "yellow", null, 10, 5);
+  var Earth = addBody(30, "blue", Sun, 5, 5);
+  var Moon = addBody(10, "white", Earth, 2, 3);
 }
 
 /*
