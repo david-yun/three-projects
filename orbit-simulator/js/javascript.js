@@ -14,29 +14,26 @@ function init() {
   document.body.appendChild(renderer.domElement);
 
   // Create a camera, zoom it out from the model a bit, and add it to the scene.
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.z = 1000;
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1e10);
+  camera.position.z = 1e3;
   scene.add(camera);
 
   // Add OrbitControls so that we can pan around with the mouse.
   controls = new THREE.OrbitControls(camera, renderer.domElement);
 
   /* Create celestial bodies
-   * a and R (10^9 m), F and M (radians), r (relative)
-   *                                     a         c           e       F    M          n      p   r      R
+   *                              a         c    e  i  F  M          n        p    r    R
    */
-  const Sun     = CelestialBody(         0, "yellow",          0,      0,   0,     "Sun",  null,  8,     0);
-  const Mercury = CelestialBody( 57.909176,   "gray", 0.20563069,  1.598,   2, "Mercury",   Sun,  3, 55.78);
-  const Venus   = CelestialBody( 108.20893, "yellow", 0.00677323,  5.139, 1.5,   "Venus",  null,  3, 107.9);
-  const Earth   = CelestialBody(149.597887,   "blue", 0.01671022, 0.1185,   1,   "Earth",   Sun,  5, 147.1);
-  const Mars    = CelestialBody(227.936637, "orange", 0.09341233, 0.8021, 0.5,    "Mars",   Sun,  5, 212.2);
-  const Jupiter = CelestialBody(778.412027,  "brown",   0.048498,  3.091, 0.2, "Jupiter",   Sun, 20, 816.2);
-  const Saturn  = CelestialBody(   1429.39, "yellow",    0.05555,  2.907,  .1,  "Saturn",   Sun, 20,  1503);
-  const Uranus  = CelestialBody(   2875.04,   "cyan",   0.046381,  3.685,  .1,  "Uranus",   Sun, 20,  2983);
-  const Neptune = CelestialBody(   4504.45,   "blue",   0.009456,  5.104,  .1, "Neptune",   Sun, 20,  4481);
+  const Sun     = CelestialBody(  0, "yellow",   0, 0, 0, 0,     "Sun",    null, 100,   0);
+  const Planet1 = CelestialBody(100,    "red", 0.3, 0, 0, 3, "Planet1",     Sun,  10, 100);
+  const Moon1   = CelestialBody( 10,  "white", 0.3, 0, 0, 6,   "Moon1", Planet1,   5,  10);
+  const Planet2 = CelestialBody(200,   "blue", 0.4, 1, 0, 2, "Planet2",     Sun,  20, 200);
+  const Moon2   = CelestialBody( 20,  "white", 0.4, 1, 0, 4,   "Moon2", Planet2,  10,  20);
+  const Planet3 = CelestialBody(300, "orange", 0.5, 2, 0, 1, "Planet3",     Sun,  30, 300);
+  const Moon3   = CelestialBody( 30,  "white", 0.5, 2, 0, 2,   "Moon3", Planet3,  15,  30);
 
   // Add them to the solarSystem
-  solarSystem = SolarSystem([Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune]);
+  solarSystem = SolarSystem([Sun, Planet1, Moon1, Planet2, Moon2, Planet3, Moon3]);
 }
 
 function animate() {
@@ -68,6 +65,7 @@ function SolarSystem(bodies) {
  * a   : semi-major axis
  * c   : color
  * e   : eccentricity
+ * i   : inclination
  * F   : initial true anomaly
  * M   : mean anomaly
  * name: name
@@ -75,52 +73,58 @@ function SolarSystem(bodies) {
  * r   : physical radius
  * R   : initial radius from parent
  */
-function CelestialBody(a, c, e, F, M, name, p, r, R) {
+function CelestialBody(a, c, e, i, F, M, name, p, r, R) {
   const geometry = new THREE.SphereGeometry(r, 32, 32);
   const material = new THREE.MeshBasicMaterial({color: c});
   const body = new THREE.Mesh(geometry, material);
 
-  // Scale a and R by 1/10
-  body.a    = a / 10;
+  body.a    = a;
   body.e    = e;
+  body.i    = i;
   body.F    = F;
   body.M    = M;
   body.name = name;
   body.p    = p;
-  body.R    = R / 10;
+  body.R    = R;
 
   scene.add(body);
 
   function getX() { return body.position.x; }
   function getY() { return body.position.y; }
+  function getZ() { return body.position.z; }
 
   function updatePosition() {
     const ms = Date.now() - Date.UTC(2000, 0, 1, 12, 0, 0);
     const sec = ms / 1000;
-    // Arbitrary speed constant
-    const speed = 1;
+    // Adjustable speed constant
+    const speed = 1/2;
     const currentM = body.M * sec * speed;
 
     const E = calcE(body.e, currentM);
     const F = calcF(body.e, E) + body.F;
     const R = calcR(body.a, body.e, E) + body.R;
 
-    let x = R * Math.cos(F);
-    let y = R * Math.sin(F);
+    let xy = R * Math.cos(F)
+    let x  = xy * Math.cos(i);
+    let y  = R * Math.sin(F);
+    let z  = xy * Math.sin(i);
 
     if (body.p) {
       x += body.p.getX();
       y += body.p.getY();
+      z += body.p.getZ();
     }
 
     body.position.x = x;
     body.position.y = y;
+    body.position.z = z;
   }
 
 
   return {
     getX: getX,
     getY: getY,
+    getZ: getZ,
     updatePosition: updatePosition
   };
 };
